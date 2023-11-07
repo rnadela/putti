@@ -1,0 +1,60 @@
+@startuml
+
+left to right direction
+skinparam roundcorner 5
+skinparam shadowing false
+skinparam handwritten false
+skinparam class {
+    BackgroundColor white
+    ArrowColor #2688d4
+    BorderColor #2688d4
+}
+
+!define primary_key( x) <b><color:#b8861b><&key></color> x</b>
+!define foreign_key( x) <color:#aaaaaa><&key></color> x
+!define column( x) <color:#efefef><&media-record></color> x
+!define table(x) entity x << (T, white) >>
+
+table( shop ) {
+  primary_key( id ): INT <<auto_increment>>
+  --
+  column( name ): VARCHAR
+  column( open ): DATETIME
+  column( closing ): DATETIME
+}
+
+table( barber ) {
+  primary_key( id ): INT <<auto_increment>>
+  --
+  column( name ): VARCHAR
+}
+
+table( shift_schedule ) {
+  primary_key( id ): INT <<auto_increment>>
+  --
+  foreign_key( barber_id ): INT
+  --
+  column( start_at ): DATETIME
+  column( end_at ): DATETIME
+}
+
+table( customer ) {
+  primary_key( id ): INT <<auto_increment>>
+  --
+  column( name ): VARCHAR
+}
+
+table( queue ) {
+  primary_key( id ): INT <<auto_increment>>
+  --
+  foreign_key( customer_id ): INT
+  foreign_key( barber_id ): INT
+  --
+  column( service_time ): DATETIME
+  column( queued_time ): DATETIME
+  column( status ): TINYINT (unavailable, available, waiting, servicing, done)
+}
+
+barber ||--o| shift_schedule
+barber ||--o{ queue
+customer |o--o| queue

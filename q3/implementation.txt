@@ -1,0 +1,89 @@
+Implementation:
+
+- A CRON job should run once a week to do the following:
+
+  - Delete all queues from last week. (Optional)
+  - Pre-generate the queue slots for 1 week after next week, for each day according to the opening and closing time.
+
+- Queue Table should be pre-generated like so:
+
+  Given:
+  opening = 8:00 AM
+  closing = 9:00 PM
+  2 barbers starts at 8:00am.
+  1 barber starts at 8:30am.
+
+        id      customer_id     barber_id       service_time            queued_time     status
+        1       null            1               2023-11-01 08:00:00     null            available
+        2       null            2               2023-11-01 08:00:00     null            available
+        3       null            1               2023-11-01 08:30:00     null            available
+        4       null            2               2023-11-01 08:30:00     null            available
+        5       null            3               2023-11-01 08:30:00     null            available  <- 3rd barber starts 8:30am
+        6       null            1               2023-11-01 09:00:00     null            available
+        7       null            2               2023-11-01 09:00:00     null            available
+        8       null            3               2023-11-01 09:00:00     null            available
+        9       null            1               2023-11-01 09:30:00     null            available
+        10      null            2               2023-11-01 09:30:00     null            available
+        11      null            3               2023-11-01 09:30:00     null            available
+
+- If a customer enters the virtual queue. System should:
+
+  - query `queue` table
+  - where status = available
+  - service_time >= current_time
+
+- Queue Table should look something like this when multiple customers have been queued.
+
+  Given:
+  A total of 6 customers queued around the same time.
+  Current time: 7:30am
+
+  Estimated time will be service_time - current_time
+
+        id      customer_id     barber_id       service_time            queued_time             status
+        1       1               1               2023-11-01 08:00:00     2023-11-01 07:00:00     waiting    <-- Estimated time: 30 mins
+        2       2               2               2023-11-01 08:00:00     2023-11-01 07:05:00     waiting    <-- Estimated time: 30 mins
+        3       3               1               2023-11-01 08:30:00     2023-11-01 07:07:00     waiting    <-- Estimated time: 60 mins
+        4       4               2               2023-11-01 08:30:00     2023-11-01 07:08:00     waiting    <-- Estimated time: 60 mins
+        5       5               3               2023-11-01 08:30:00     2023-11-01 07:12:00     waiting    <-- Estimated time: 60 mins
+        6       6               1               2023-11-01 09:00:00     2023-11-01 07:25:00     waiting    <-- Estimated time: 90 mins
+        7       null            2               2023-11-01 09:00:00     null                    available
+        8       null            3               2023-11-01 09:00:00     null                    available
+        9       null            1               2023-11-01 09:30:00     null                    available
+        10      null            2               2023-11-01 09:30:00     null                    available
+        11      null            3               2023-11-01 09:30:00     null                    available
+
+- When current time is 8:30am
+
+        id      customer_id     barber_id       service_time            queued_time             status
+        1       1               1               2023-11-01 08:00:00     2023-11-01 07:00:00     done        <-- Excluded from list
+        2       2               2               2023-11-01 08:00:00     2023-11-01 07:05:00     done        <-- Excluded from list
+        3       3               1               2023-11-01 08:30:00     2023-11-01 07:07:00     servicing   <-- Estimated time: NOW
+        4       4               2               2023-11-01 08:30:00     2023-11-01 07:08:00     servicing   <-- Estimated time: NOW
+        5       5               3               2023-11-01 08:30:00     2023-11-01 07:12:00     servicing   <-- Estimated time: NOW
+        6       6               1               2023-11-01 09:00:00     2023-11-01 07:25:00     waiting     <-- Estimated time: 30 mins
+        7       null            2               2023-11-01 09:00:00     null                    available
+        8       null            3               2023-11-01 09:00:00     null                    available
+        9       null            1               2023-11-01 09:30:00     null                    available
+        10      null            2               2023-11-01 09:30:00     null                    available
+        11      null            3               2023-11-01 09:30:00     null                    available
+
+- When a customer enters the queue. Current time 9:30am
+
+        id      customer_id     barber_id       service_time            queued_time             status
+        1       1               1               2023-11-01 08:00:00     2023-11-01 07:00:00     done        <-- Excluded from list
+        2       2               2               2023-11-01 08:00:00     2023-11-01 07:05:00     done        <-- Excluded from list
+        3       3               1               2023-11-01 08:30:00     2023-11-01 07:07:00     done        <-- Excluded from list
+        4       4               2               2023-11-01 08:30:00     2023-11-01 07:08:00     done        <-- Excluded from list
+        5       5               3               2023-11-01 08:30:00     2023-11-01 07:12:00     done        <-- Excluded from list
+        6       6               1               2023-11-01 09:00:00     2023-11-01 07:25:00     done        <-- Excluded from list
+        7       null            2               2023-11-01 09:00:00     null                    unavailable
+        8       null            3               2023-11-01 09:00:00     null                    unavailable
+        9       7               1               2023-11-01 09:30:00     2023-11-01 09:30:00     servicing   <-- Estimated time: NOW
+        10      null            2               2023-11-01 09:30:00     null                    available
+        11      null            3               2023-11-01 09:30:00     null                    available
+
+Note:
+
+- This implementation can still be improved to improve accuracy of waiting times since this implementation considers the fix 30 minutes service interval.
+- Another improvement that can be done is to add a regeneration of queue slots if a barber does not show up for his shift. This will require an additional tracking of an employees time in/out and sick/vacation leaves.

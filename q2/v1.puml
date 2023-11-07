@@ -1,0 +1,76 @@
+@startuml Sequence Diagram - Question 2
+
+autonumber
+
+skinparam SequenceMessageAlign first
+skinparam BoxPadding 20
+
+actor Customer as customer
+
+box Toy Universe
+  participant "**Server**" as toyUniverseServer <<toyuniverse.com>>
+end box
+
+box SFTP
+  participant "**Server**" as sftpServer <<SFTP>>
+end box
+
+box "My Server" #lightblue
+  participant "**Server**" as myServer <<API>>
+  participant "**Order Table**" as orderModel <<Database>>
+  participant "**Worker**" as worker <<Job>>
+end box
+
+box "Redis" #lightgreen
+  participant "**BullMQ**" as bull <<Queue>>
+end box
+
+box ERP
+  participant "**Server**" as erpServer <<Order Management>>
+end box
+
+group Customer Order
+  customer --> toyUniverseServer : User purchases a product
+  toyUniverseServer --> myServer : Web hook notification of purchase
+  myServer --> orderModel : Save
+  note right: **status** = **pending** (default)\nSaving order ID can serve as persistence\nin cases wherein Redis restarts\nand will be picked up by API server\nupon startup to re-add to queue.
+  orderModel --> myServer
+  myServer --> toyUniverseServer : Success response
+  note left: This solves the timeout issue\nsince the webhook no longer needs\nto concern itself with finding\nthe order detail and submission to ERP
+
+  myServer --> orderModel : Query order by ID
+  alt "Order found in database"
+    orderModel --> myServer : Order found
+    myServer --> erpServer : Call ERP API to create\nan order and pass order details
+    erpServer --> myServer : Success response
+    myServer --> orderModel : Update
+    note right: **status** = **fulfilled**
+  end
+  alt "Failed to find order"
+    myServer --> bull : Add a job with given order ID
+  end
+end
+
+group Queue
+  bull --> worker : Trigger associated worker
+  worker --> worker : Check latest XML file
+  loop "Up to latest available file"
+    worker --> sftpServer : Request new XML files
+    sftpServer --> worker : Download new XML files
+    worker --> worker : Parse each XML file
+    worker --> orderModel : Save all order details\nwhile ignoring duplicates
+  end
+
+  myServer --> orderModel : Query order by ID
+  alt "Order found in database"
+    orderModel --> worker : Order found
+    worker --> erpServer : Call ERP API to create\nan order and pass order details
+    erpServer --> worker : Success response
+    worker --> orderModel : Update
+    note left: **status** = **fulfilled**
+  end
+  alt "Failed to find order"
+    worker --> bull : Add another job with given order ID
+    note right: This will add the job at\nthe bottom of the queue.
+  end
+end

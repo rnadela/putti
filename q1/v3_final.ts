@@ -113,7 +113,9 @@ async function GetProductsApi(req: Request, res: Response) {
 const app = Express();
 app.get('/products', GetProductsApi);
 
+// NOTES:
 // 1. Since parsers are decoupled and not company specific, can be reused to parse other 3rd party suppliers.
 // 1. When adding a new 3rd party supplier, given with the same data type and format (JSON, XML, CSV), just need to add the company info, API url and the correct data type in the database.
 // 3. Format specific parsers inherit from an abstract class to standardize the parser
 // 4. Company object properties are encapsulated and can't be mutated outside of initialization.
+// 5. I initially create subclasses from Company class to each specific company, but that would only be ideal if the number of suppliers does not increase.

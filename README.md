@@ -1,1 +1,1 @@
-## Please open the SVG files in a browser to properly view
+## Please open the SVG files to view the diagrams in a browser
